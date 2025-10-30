@@ -11,11 +11,11 @@
 
 .rmp-badge-main {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: 14px;
+  padding: 2px 8px;
+  border-radius: 8px;
   color: white;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -68,15 +68,15 @@ td.dddefault {
 /* Responsive adjustments */
 @media (max-width: 1200px) {
   .rmp-rating-badge {
-    font-size: 11px;
-  }
-  
-  .rmp-badge-main {
-    font-size: 12px;
-    padding: 3px 10px;
-  }
-  
-  .rmp-badge-details {
     font-size: 10px;
+  }
+
+  .rmp-badge-main {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .rmp-badge-details {
+    font-size: 9px;
   }
 }
