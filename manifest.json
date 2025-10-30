@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "UO DuckWeb RateMyProfessor",
+  "version": "1.0.0",
+  "description": "Shows RateMyProfessor ratings on UO DuckWeb course catalog",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.ratemyprofessors.com/*",
+    "https://*.ratemyprofessors.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://duckweb.uoregon.edu/*",
+        "*://*.uoregon.edu/*",
+        "*://catalog.uoregon.edu/courses/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
