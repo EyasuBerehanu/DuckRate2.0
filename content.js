@@ -4,41 +4,48 @@ console.log('RateMyProfessor Extension loaded on DuckWeb');
 // Cache for professor ratings to avoid repeated API calls
 const ratingCache = {};
 
-function findStudentReview(){
+// Track if we've added the column header
+let columnHeaderAdded = false;
 
-}
 // Function to find all table rows with course information
 function findProfessorCells() {
   const professorCells = [];
-  
-  // Find all table rows in the course listing
-  const rows = document.querySelectorAll('tr');
-  
+
+  // Find the main results table
+  const table = document.querySelector('#table1');
+  if (!table) return professorCells;
+
+  // Find all data rows (exclude header)
+  const rows = table.querySelectorAll('tbody tr');
+
   rows.forEach(row => {
-    // Get all cells in the row
-    const cells = row.querySelectorAll('td.dddefault');
-    
-    // The instructor cell is typically the 11th cell (index 10)
-    // Format: "FirstName LastName (P)" or "FirstName LastName"
-    if (cells.length >= 11) {
-      const instructorCell = cells[10];
-      const instructorText = instructorCell.textContent.trim();
-      
-      // Check if this cell contains an instructor name
-      // Skip cells with "TBA", "Staff", or empty
-      if (instructorText && 
-          instructorText !== 'TBA' && 
-          !instructorText.toLowerCase().includes('staff') &&
-          instructorText.length > 2) {
-        
-        professorCells.push({
-          cell: instructorCell,
-          text: instructorText
-        });
+    // Find the instructor cell by data-property attribute
+    const instructorCell = row.querySelector('td[data-property="instructor"]');
+
+    if (instructorCell) {
+      // Get the professor name from the anchor tag
+      const instructorLink = instructorCell.querySelector('a.email');
+
+      if (instructorLink) {
+        const instructorText = instructorLink.textContent.trim();
+
+        // Check if this cell contains an instructor name
+        // Skip cells with "TBA", "Staff", or empty
+        if (instructorText &&
+            instructorText !== 'TBA' &&
+            !instructorText.toLowerCase().includes('staff') &&
+            instructorText.length > 2) {
+
+          professorCells.push({
+            row: row,
+            cell: instructorCell,
+            text: instructorText
+          });
+        }
       }
     }
   });
-  
+
   return professorCells;
 }
 
@@ -46,108 +53,141 @@ function findProfessorCells() {
 function extractProfessorName(text) {
   // Remove the "(P)" indicator for primary instructor
   let name = text.replace(/\([^)]*\)/g, '').trim();
-  
+
   // Remove any extra whitespace
   name = name.replace(/\s+/g, ' ').trim();
-  
+
   return name;
 }
 
-// Function to create and insert rating badge
+// Function to add RMP Rating column header
+function addRatingColumnHeader() {
+  if (columnHeaderAdded) return;
+
+  const table = document.querySelector('#table1');
+  if (!table) return;
+
+  const headerRow = table.querySelector('thead tr');
+  if (!headerRow) return;
+
+  // Find the instructor column header
+  const instructorHeader = headerRow.querySelector('th[data-property="instructor"]');
+  if (!instructorHeader) return;
+
+  // Create new header for RMP Rating
+  const rmpHeader = document.createElement('th');
+  rmpHeader.scope = 'col';
+  rmpHeader.setAttribute('data-sort-direction', 'disabled');
+  rmpHeader.className = 'sort-disabled rmp-rating-col ui-state-default';
+  rmpHeader.setAttribute('data-property', 'rmpRating');
+  rmpHeader.setAttribute('xe-field', 'rmpRating');
+  rmpHeader.setAttribute('style', 'width: 8%;');
+  rmpHeader.setAttribute('data-hide', 'phone');
+
+  // Create title div
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'title';
+  titleDiv.title = 'RMP Rating';
+  titleDiv.textContent = 'RMP Rating 🦆⭐';
+  titleDiv.style.width = 'auto';
+
+  // Create sort handle div (needed for proper layout)
+  const sortHandle = document.createElement('div');
+  sortHandle.className = 'sort-handle';
+  sortHandle.style.height = '100%';
+  sortHandle.style.width = '5px';
+  sortHandle.style.cursor = 'w-resize';
+
+  rmpHeader.appendChild(titleDiv);
+  rmpHeader.appendChild(sortHandle);
+
+  // Insert after instructor column
+  instructorHeader.after(rmpHeader);
+
+  columnHeaderAdded = true;
+}
+
+// Function to create rating badge for new column
 function createRatingBadge(professorName, ratingData) {
   const badge = document.createElement('div');
-  badge.className = 'rmp-rating-badge';
-  
+  badge.className = 'rmp-rating-text';
+
   if (ratingData.success) {
     const { rating, numRatings, wouldTakeAgain, difficulty } = ratingData.data;
-    
-    // Determine rating color
+
+    // Determine rating color and emoji
     let ratingColor = '#4CAF50'; // green
-    if (rating < 3) ratingColor = '#f44336'; // red
-    else if (rating < 4) ratingColor = '#ff9800'; // orange
-    
+    let ratingEmoji = '😄'; // happy
+    if (rating < 3) {
+      ratingColor = '#f44336'; // red
+      ratingEmoji = '😡'; // angry
+    } else if (rating < 4) {
+      ratingColor = '#ff9800'; // orange
+      ratingEmoji = '😐'; // neutral
+    }
+
     badge.innerHTML = `
-      <div class="rmp-badge-main" style="background-color: ${ratingColor}">
-        ⭐ ${rating ? rating.toFixed(1) : 'N/A'}
+      <div class="rmp-rating-score" style="color: ${ratingColor}">
+        ${rating ? rating.toFixed(1) : 'N/A'} ${ratingEmoji}
       </div>
-      <div class="rmp-badge-details">
+      <div class="rmp-rating-details">
         ${numRatings || 0} rating${numRatings !== 1 ? 's' : ''}
         ${wouldTakeAgain ? `<br>${wouldTakeAgain.toFixed(0)}% would take again` : ''}
         ${difficulty ? `<br>Difficulty: ${difficulty.toFixed(1)}/5` : ''}
       </div>
     `;
-    
+
     badge.title = `Click to view ${professorName} on RateMyProfessor`;
     badge.style.cursor = 'pointer';
     badge.onclick = () => {
       window.open(`https://www.ratemyprofessors.com/professor/${ratingData.data.id}`, '_blank');
     };
   } else {
-    badge.innerHTML = `<div class="rmp-badge-main rmp-not-found">Not on RMP</div>`;
+    badge.innerHTML = `<div class="rmp-rating-score">Not on RMP</div>`;
     badge.title = 'Professor not found on RateMyProfessor';
   }
-  
+
   return badge;
 }
 
 // Function to process a professor cell
 async function processProfessorCell(profCell) {
   const professorName = extractProfessorName(profCell.text);
-  
+
   if (!professorName || professorName.length < 3) {
     return; // Skip invalid names
   }
-  
-  // Check if we've already processed this cell
-  if (profCell.cell.querySelector('.rmp-rating-badge')) {
-    return;
+
+  // Check if we've already processed this row
+  const existingRatingCell = profCell.row.querySelector('td[data-property="rmpRating"]');
+  if (existingRatingCell) {
+    return; // Already processed
   }
-  
+
+  // Create the new rating cell
+  const ratingCell = document.createElement('td');
+  ratingCell.setAttribute('data-property', 'rmpRating');
+  ratingCell.setAttribute('xe-field', 'rmpRating');
+  ratingCell.className = 'readonly';
+  ratingCell.setAttribute('data-content', 'RMP Rating');
+  ratingCell.style.width = '8%';
+
+  // Insert the cell after the instructor cell
+  profCell.cell.after(ratingCell);
+
   // Check cache first
   if (ratingCache[professorName]) {
     const badge = createRatingBadge(professorName, ratingCache[professorName]);
-    
-    // Store original content
-    const originalContent = profCell.cell.innerHTML;
-    
-    // Create wrapper to organize content
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex';
-    wrapper.style.alignItems = 'center';
-    wrapper.style.gap = '10px';
-    
-    const nameSpan = document.createElement('span');
-    nameSpan.innerHTML = originalContent;
-    
-    wrapper.appendChild(nameSpan);
-    wrapper.appendChild(badge);
-    
-    profCell.cell.innerHTML = '';
-    profCell.cell.appendChild(wrapper);
+    ratingCell.appendChild(badge);
     return;
   }
-  
+
   // Create loading indicator
   const loadingBadge = document.createElement('div');
-  loadingBadge.className = 'rmp-rating-badge rmp-loading';
-  loadingBadge.innerHTML = '<div class="rmp-badge-main" style="background-color: #2196F3">...</div>';
-  
-  // Store original content and add loading badge
-  const originalContent = profCell.cell.innerHTML;
-  const wrapper = document.createElement('div');
-  wrapper.style.display = 'flex';
-  wrapper.style.alignItems = 'center';
-  wrapper.style.gap = '10px';
-  
-  const nameSpan = document.createElement('span');
-  nameSpan.innerHTML = originalContent;
-  
-  wrapper.appendChild(nameSpan);
-  wrapper.appendChild(loadingBadge);
-  
-  profCell.cell.innerHTML = '';
-  profCell.cell.appendChild(wrapper);
-  
+  loadingBadge.className = 'rmp-rating-text rmp-loading';
+  loadingBadge.innerHTML = '<div class="rmp-rating-score">...</div>';
+  ratingCell.appendChild(loadingBadge);
+
   // Request rating from background script
   chrome.runtime.sendMessage(
     { action: 'getProfessorRating', professorName: professorName },
@@ -157,24 +197,27 @@ async function processProfessorCell(profCell) {
         loadingBadge.remove();
         return;
       }
-      
+
       // Cache the response
       ratingCache[professorName] = response;
-      
+
       // Replace loading badge with actual rating
       loadingBadge.remove();
       const badge = createRatingBadge(professorName, response);
-      wrapper.appendChild(badge);
+      ratingCell.appendChild(badge);
     }
   );
 }
 
 // Main function to run the extension
 async function init() {
+  // Add the RMP Rating column header first
+  addRatingColumnHeader();
+
   const professorCells = findProfessorCells();
-  
+
   console.log(`Found ${professorCells.length} professor cells`);
-  
+
   // Process each professor cell with a small delay to avoid rate limiting
   for (let i = 0; i < professorCells.length; i++) {
     await processProfessorCell(professorCells[i]);
@@ -201,7 +244,7 @@ const observer = new MutationObserver((mutations) => {
     )
   );
   
-  if (significantChange) {xw
+  if (significantChange) {
     clearTimeout(window.rmpInitTimeout);
     window.rmpInitTimeout = setTimeout(init, 500);
   }
