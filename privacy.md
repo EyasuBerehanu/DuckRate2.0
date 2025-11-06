@@ -1,0 +1,3 @@
+DuckRate Privacy Policy
+
+DuckRate does not collect, store, or share any personal user information. The extension only reads publicly available content on University of Oregon course catalog pages to display professor ratings from RateMyProfessor. No personal, financial, health, or authentication data is collected. All data read from course catalog pages is used solely to display ratings within the extension and is not transmitted or stored.
